@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gear base -->
+  <path d="M12 2 L14.5 6.5 L19.5 7 L16 11 L17 16 L12 14 L7 16 L8 11 L4.5 7 L9.5 6.5 Z" 
+        fill="#666" stroke="#333" stroke-width="1"/>
+  
+  <!-- Center circle -->
+  <circle cx="12" cy="12" r="4" fill="#4A90E2" stroke="#333" stroke-width="1"/>
+  
+  <!-- AI brain icon -->
+  <path d="M10 10 Q12 8 14 10 Q14 12 12 12 Q10 12 10 10 Z" fill="white"/>
+  <circle cx="10.5" cy="10.5" r="0.5" fill="#4A90E2"/>
+  <circle cx="13.5" cy="10.5" r="0.5" fill="#4A90E2"/>
+  
+  <!-- Neural network lines -->
+  <line x1="12" y1="13" x2="12" y2="14.5" stroke="white" stroke-width="0.5"/>
+  <line x1="11" y1="13.5" x2="10" y2="14.5" stroke="white" stroke-width="0.5"/>
+  <line x1="13" y1="13.5" x2="14" y2="14.5" stroke="white" stroke-width="0.5"/>
+</svg>
