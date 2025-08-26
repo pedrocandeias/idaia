@@ -48,6 +48,8 @@
 
 ### 📦 **Installation**
 
+#### **For Regular FreeCAD Installation**
+
 1. **Download the addon:**
    ```bash
    git clone https://github.com/pedrocandeias/idaia.git
@@ -66,6 +68,29 @@
    ```
 
 4. **Restart FreeCAD** and find "Vibe Design" in the workbench selector
+
+#### **For FreeCAD Snap Installation**
+
+If you're using FreeCAD installed via snap (common on Ubuntu/Linux):
+
+1. **Download the addon:**
+   ```bash
+   git clone https://github.com/pedrocandeias/idaia.git
+   ```
+
+2. **Install to FreeCAD snap directory:**
+   ```bash
+   cp -r idaia/idaiavibedesign ~/snap/freecad/common/Mod/
+   ```
+
+3. **Dependencies:**
+   - For snap FreeCAD, AI features may not work due to snap sandboxing
+   - Basic natural language parsing works without additional dependencies
+   - To enable AI features, try: `sudo snap install --classic freecad` (if available)
+
+4. **Restart FreeCAD** and find "Vibe Design" in the workbench selector
+
+> **Note for Snap Users**: The snap version has limited access to system Python packages. The workbench will function with built-in rule-based parsing for standard shapes (boxes, cylinders, spheres) but AI features may be unavailable.
 
 ### 🎯 **Basic Usage**
 
