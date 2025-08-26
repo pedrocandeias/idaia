@@ -50,12 +50,12 @@
 
 1. **Download the addon:**
    ```bash
-   git clone https://github.com/yourusername/VibeDesign.git
+   git clone https://github.com/pedrocandeias/idaia.git
    # Or download ZIP from GitHub releases
    ```
 
 2. **Install to FreeCAD:**
-   - Copy `VibeDesign` folder to your FreeCAD `Mod` directory:
+   - Copy `idaiavibedesign` folder to your FreeCAD `Mod` directory:
      - **Linux**: `~/.local/share/FreeCAD/Mod/`
      - **Windows**: `%APPDATA%\FreeCAD\Mod\`
      - **macOS**: `~/Library/Preferences/FreeCAD/Mod/`
@@ -274,10 +274,10 @@ MIT License - Free for commercial and personal use
 
 ## 📞 **Support & Community**
 
-- **🐛 Issues**: [GitHub Issues](https://github.com/yourusername/VibeDesign/issues)
-- **💬 Discussions**: [GitHub Discussions](https://github.com/yourusername/VibeDesign/discussions)  
+- **🐛 Issues**: [GitHub Issues](https://github.com/pedrocandeias/idaia/issues)
+- **💬 Discussions**: [GitHub Discussions](https://github.com/pedrocandeias/idaia/discussions)  
 - **🏛️ Forum**: [FreeCAD Forum](https://forum.freecad.org/)
-- **📧 Email**: your-email@example.com
+- **📧 Email**: eu@pedrocandeias.net
 
 ---
 
