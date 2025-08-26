@@ -12,7 +12,7 @@ class VibeDesignWorkbench(FreeCADGui.Workbench):
     
     def Initialize(self):
         """This function is executed when FreeCAD starts"""
-        import VibeDesignCommands
+        from . import VibeDesignCommands
         
         self.list = ["VibeDesign_PromptCommand"]
         
