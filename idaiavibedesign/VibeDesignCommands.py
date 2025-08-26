@@ -5,8 +5,8 @@ import Part
 import re
 import os
 try:
-    from .AIAgent import AIAgentManager, AIAgentConfig
-    from .AISettings import AISettingsPanel
+    from AIAgent import AIAgentManager, AIAgentConfig
+    from AISettings import AISettingsPanel
     AI_AVAILABLE = True
 except ImportError:
     AI_AVAILABLE = False
@@ -31,21 +31,33 @@ class VibeDesignPromptCommand:
         """Determine if the command should be enabled"""
         return True
 
-class VibeDesignPromptPanel:
+class VibeDesignPromptPanel(QtCore.QObject):
     """Task panel for entering natural language prompts"""
     
+    ai_response_signal = QtCore.Signal()
+    
     def __init__(self):
+        super().__init__()
         self.parser = PromptParser()
         self.ai_manager = None
         self.ai_enabled = False
-        self.form = self.create_ui()
         
+        # Initialize AI manager before creating UI
         if AI_AVAILABLE:
             try:
                 self.ai_manager = AIAgentManager()
                 self.load_ai_settings()
             except Exception as e:
                 FreeCAD.Console.PrintWarning(f"Could not initialize AI agent: {str(e)}\n")
+        
+        self.form = self.create_ui()
+        
+        # Connect the signal
+        self.ai_response_signal.connect(self.handle_ai_response)
+        
+        # Update AI status after UI is created
+        if hasattr(self, 'ai_status'):
+            self.update_ai_status()
     
     def create_ui(self):
         """Create the user interface"""
@@ -89,7 +101,8 @@ class VibeDesignPromptPanel:
         
         self.ai_toggle = QtWidgets.QCheckBox("Use AI Agent")
         self.ai_toggle.setChecked(self.ai_enabled and AI_AVAILABLE)
-        self.ai_toggle.setEnabled(AI_AVAILABLE and self.ai_manager and self.ai_manager.is_available())
+        ai_available = AI_AVAILABLE and self.ai_manager and bool(self.ai_manager.is_available())
+        self.ai_toggle.setEnabled(ai_available)
         self.ai_toggle.toggled.connect(self.on_ai_toggle)
         mode_layout.addWidget(self.ai_toggle)
         
@@ -175,10 +188,10 @@ class VibeDesignPromptPanel:
     def process_with_ai(self, prompt):
         """Process prompt using AI agent"""
         def ai_callback(result):
-            QtCore.QMetaObject.invokeMethod(
-                self, "handle_ai_response", QtCore.Qt.QueuedConnection,
-                QtCore.Q_ARG(dict, result)
-            )
+            # Store result for thread-safe access
+            self._ai_result = result
+            # Emit signal to handle response in main thread
+            self.ai_response_signal.emit()
         
         # Get current context
         context = self.get_current_context()
@@ -190,9 +203,10 @@ class VibeDesignPromptPanel:
             self.create_button.setEnabled(True)
             self.create_button.setText("Create Object")
     
-    @QtCore.Slot(dict)
-    def handle_ai_response(self, result):
+    @QtCore.Slot()
+    def handle_ai_response(self):
         """Handle AI response"""
+        result = getattr(self, '_ai_result', {})
         self.create_button.setEnabled(True)
         self.create_button.setText("Create Object")
         
@@ -375,7 +389,7 @@ class VibeDesignPromptPanel:
     
     def on_ai_toggle(self, checked):
         """Handle AI toggle"""
-        self.ai_enabled = checked and AI_AVAILABLE and self.ai_manager
+        self.ai_enabled = checked and AI_AVAILABLE and bool(self.ai_manager)
         self.clear_button.setEnabled(self.ai_enabled)
         self.update_ai_status()
         
@@ -430,9 +444,10 @@ class VibeDesignPromptPanel:
                 config.from_dict(data)
                 self.ai_manager.initialize_agent(config)
                 
-                self.ai_enabled = self.ai_manager.is_available()
-                self.ai_toggle.setChecked(self.ai_enabled)
-                self.ai_toggle.setEnabled(True)
+                self.ai_enabled = bool(self.ai_manager.is_available())
+                if hasattr(self, 'ai_toggle'):
+                    self.ai_toggle.setChecked(self.ai_enabled)
+                    self.ai_toggle.setEnabled(True)
             else:
                 # Use default config
                 self.ai_manager.initialize_agent()
@@ -442,7 +457,9 @@ class VibeDesignPromptPanel:
             FreeCAD.Console.PrintWarning(f"Could not load AI settings: {str(e)}\n")
             self.ai_enabled = False
         
-        self.update_ai_status()
+        # Update AI status if UI exists
+        if hasattr(self, 'ai_status'):
+            self.update_ai_status()
     
     def update_ai_status(self):
         """Update AI status indicator"""
@@ -621,7 +638,7 @@ FreeCADGui.addCommand('VibeDesign_PromptCommand', VibeDesignPromptCommand())
 # Import AI settings command if available
 if AI_AVAILABLE:
     try:
-        from .AISettings import AISettingsCommand
+        from AISettings import AISettingsCommand
         FreeCADGui.addCommand('VibeDesign_AISettings', AISettingsCommand())
     except ImportError:
         pass

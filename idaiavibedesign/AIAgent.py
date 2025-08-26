@@ -14,7 +14,7 @@ class AIAgentConfig:
         self.model = "llama3.1:8b"
         self.api_key = ""
         self.base_url = "http://localhost:11434/v1"
-        self.timeout = 30
+        self.timeout = 60
         self.max_retries = 3
         self.temperature = 0.1
         

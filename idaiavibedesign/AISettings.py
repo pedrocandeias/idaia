@@ -3,7 +3,7 @@ import FreeCADGui
 from PySide2 import QtWidgets, QtCore, QtGui
 import json
 import os
-from .AIAgent import AIAgentConfig, AIAgentManager
+from AIAgent import AIAgentConfig, AIAgentManager
 
 class AISettingsPanel(QtWidgets.QWidget):
     """Settings panel for AI configuration"""
