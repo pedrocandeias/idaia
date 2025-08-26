@@ -1,0 +1,12 @@
+[general]
+name = IdaiaVibeDesign
+description = IdaiaVibeDesign addon for FreeCAD
+author = Pedro Candeias
+version = 1.0.0
+web = https://github.com/pedrocandeias/idaia
+wiki = 
+tracker = https://github.com/pedrocandeias/idaia/issues
+icon = icon.svg
+tags = workbench,design
+freecadmin = 0.19
+pythonmin = 3.6
