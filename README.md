@@ -4,7 +4,15 @@ A FreeCAD addon for design tools.
 
 ## Installation
 
-### Via Addon Manager (Recommended)
+### Via Addon Manager with Custom Repository
+1. Open FreeCAD
+2. Go to Edit > Preferences > Addon Manager > Addon manager options
+3. In "Custom repositories" add: `https://github.com/pedrocandeias/idaia`
+4. Go to Tools > Addon Manager
+5. Search for "IdaiaVibeDesign" 
+6. Click Install
+
+### Via Official Addon Manager (When Available)
 1. Open FreeCAD
 2. Go to Tools > Addon Manager
 3. Search for "IdaiaVibeDesign" 

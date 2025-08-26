@@ -1,31 +1,41 @@
+import FreeCAD
 import FreeCADGui
 import os
 
-
-class IdaiaVibeDesignWorkbench(FreeCADGui.Workbench):
-    """
-    IdaiaVibeDesign workbench for FreeCAD
-    """
+class VibeDesignWorkbench(FreeCADGui.Workbench):
+    """VibeDesign workbench for natural language CAD modeling"""
     
-    MenuText = "IdaiaVibeDesign"
-    ToolTip = "IdaiaVibeDesign addon for FreeCAD"
-    Icon = os.path.join(os.path.dirname(__file__), "icon.svg")
+    def __init__(self):
+        self.__class__.MenuText = "Vibe Design"
+        self.__class__.ToolTip = "Natural language CAD modeling workbench"
+        self.__class__.Icon = os.path.join(os.path.dirname(__file__), "Resources", "VibeDesign.svg")
     
     def Initialize(self):
         """This function is executed when FreeCAD starts"""
-        import IdaiaVibeDesignCommands
+        import VibeDesignCommands
         
-        self.list = ["IdaiaVibeDesign_Command"]
-        self.appendToolbar("IdaiaVibeDesign", self.list)
-        self.appendMenu("IdaiaVibeDesign", self.list)
+        self.list = ["VibeDesign_PromptCommand"]
+        
+        # Add AI settings if available
+        try:
+            from . import AISettings
+            self.list.append("VibeDesign_AISettings")
+        except ImportError:
+            pass
+        
+        self.appendToolbar("Vibe Design", self.list)
+        self.appendMenu("Vibe Design", self.list)
     
     def Activated(self):
-        """This function is executed when the workbench is activated"""
-        pass
+        """Called when workbench is activated"""
+        FreeCAD.Console.PrintMessage("Vibe Design workbench activated\n")
     
     def Deactivated(self):
-        """This function is executed when the workbench is deactivated"""
-        pass
+        """Called when workbench is deactivated"""
+        FreeCAD.Console.PrintMessage("Vibe Design workbench deactivated\n")
+    
+    def GetClassName(self):
+        """Required for Python workbenches"""
+        return "Gui::PythonWorkbench"
 
-
-FreeCADGui.addWorkbench(IdaiaVibeDesignWorkbench())
+FreeCADGui.addWorkbench(VibeDesignWorkbench())
