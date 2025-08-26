@@ -35,10 +35,10 @@ class VibeDesignPromptPanel:
     """Task panel for entering natural language prompts"""
     
     def __init__(self):
-        self.form = self.create_ui()
         self.parser = PromptParser()
         self.ai_manager = None
         self.ai_enabled = False
+        self.form = self.create_ui()
         
         if AI_AVAILABLE:
             try:

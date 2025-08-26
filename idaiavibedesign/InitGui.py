@@ -8,17 +8,43 @@ class VibeDesignWorkbench(FreeCADGui.Workbench):
     def __init__(self):
         self.__class__.MenuText = "Vibe Design"
         self.__class__.ToolTip = "Natural language CAD modeling workbench"
-        self.__class__.Icon = os.path.join(os.path.dirname(__file__), "Resources", "VibeDesign.svg")
+        
+        # Try to get addon directory path for icon
+        try:
+            # First try using __file__ if available
+            addon_dir = ""
+            try:
+                if '__file__' in globals():
+                    addon_dir = os.path.dirname(__file__)
+            except:
+                pass
+            
+            # Fallback: search in FreeCAD Mod directories
+            if not addon_dir:
+                import sys
+                for path in sys.path:
+                    test_path = os.path.join(path, "idaiavibedesign")
+                    if os.path.exists(test_path):
+                        addon_dir = test_path
+                        break
+            
+            # Set icon if we found the directory
+            if addon_dir:
+                icon_path = os.path.join(addon_dir, "Resources", "VibeDesign.svg")
+                if os.path.exists(icon_path):
+                    self.__class__.Icon = icon_path
+        except:
+            pass  # Continue without icon if path detection fails
     
     def Initialize(self):
         """This function is executed when FreeCAD starts"""
-        from . import VibeDesignCommands
+        import VibeDesignCommands
         
         self.list = ["VibeDesign_PromptCommand"]
         
         # Add AI settings if available
         try:
-            from . import AISettings
+            import AISettings
             self.list.append("VibeDesign_AISettings")
         except ImportError:
             pass
