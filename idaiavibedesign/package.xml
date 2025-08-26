@@ -4,13 +4,13 @@
     <description>Natural language CAD modeling workbench for FreeCAD</description>
     <version>1.0.0</version>
     <date>2025-08-25</date>
-    <maintainer email="your-email@example.com">Your Name</maintainer>
+    <maintainer email="eu@pedrocandeias.net">Pedro Candeias</maintainer>
     <license file="LICENSE">MIT</license>
-    <url type="website">https://github.com/yourusername/VibeDesign</url>
-    <url type="repository">https://github.com/yourusername/VibeDesign.git</url>
-    <url type="bugtracker">https://github.com/yourusername/VibeDesign/issues</url>
-    <url type="readme">https://github.com/yourusername/VibeDesign/blob/main/README.md</url>
-    <author email="your-email@example.com">Your Name</author>
+    <url type="website">https://github.com/pedrocandeias/idaia</url>
+    <url type="repository">https://github.com/pedrocandeias/idaia.git</url>
+    <url type="bugtracker">https://github.com/pedrocandeias/idaia/issues</url>
+    <url type="readme">https://github.com/pedrocandeias/idaia/blob/main/README.md</url>
+    <author email="eu@pedrocandeias.net">Pedro Candeias</author>
     <depend>FreeCAD</depend>
     <python_require>requests</python_require>
     <tag>CAD</tag>

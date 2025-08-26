@@ -1,0 +1,12 @@
+[general]
+name = VibeDesign
+description = Natural language CAD modeling workbench for FreeCAD
+author = Pedro Candeias
+version = 1.0.0
+web = https://github.com/pedrocandeias/idaia
+wiki = 
+tracker = https://github.com/pedrocandeias/idaia/issues
+icon = Resources/VibeDesign.svg
+tags = workbench,design,natural-language,AI,CAD
+freecadmin = 0.20
+pythonmin = 3.6
