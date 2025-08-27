@@ -158,18 +158,22 @@ class AISettingsPanel(QtWidgets.QWidget):
                 manager.initialize_agent(self.config)
                 
                 if manager.test_connection():
+                    # Store success state and emit signal
+                    self._test_result = {"success": True}
                     QtCore.QMetaObject.invokeMethod(
-                        self, "on_test_success", QtCore.Qt.QueuedConnection
+                        self, "on_test_complete", QtCore.Qt.QueuedConnection
                     )
                 else:
+                    # Store failure state and emit signal
+                    self._test_result = {"success": False, "error": "Connection failed"}
                     QtCore.QMetaObject.invokeMethod(
-                        self, "on_test_failure", QtCore.Qt.QueuedConnection,
-                        QtCore.Q_ARG(str, "Connection failed")
+                        self, "on_test_complete", QtCore.Qt.QueuedConnection
                     )
             except Exception as e:
+                # Store error state and emit signal
+                self._test_result = {"success": False, "error": str(e)}
                 QtCore.QMetaObject.invokeMethod(
-                    self, "on_test_failure", QtCore.Qt.QueuedConnection,
-                    QtCore.Q_ARG(str, str(e))
+                    self, "on_test_complete", QtCore.Qt.QueuedConnection
                 )
         
         import threading
@@ -178,20 +182,21 @@ class AISettingsPanel(QtWidgets.QWidget):
         thread.start()
     
     @QtCore.Slot()
-    def on_test_success(self):
-        """Handle successful connection test"""
+    def on_test_complete(self):
+        """Handle completed connection test"""
         self.test_button.setEnabled(True)
         self.test_button.setText("Test Connection")
-        self.status_label.setText("✓ Connection successful!")
-        self.status_label.setStyleSheet("color: green; font-style: italic; margin: 5px 0px;")
-    
-    @QtCore.Slot(str)
-    def on_test_failure(self, error):
-        """Handle failed connection test"""
-        self.test_button.setEnabled(True)
-        self.test_button.setText("Test Connection")
-        self.status_label.setText(f"✗ Connection failed: {error}")
-        self.status_label.setStyleSheet("color: red; font-style: italic; margin: 5px 0px;")
+        
+        # Check stored result
+        result = getattr(self, '_test_result', {"success": False, "error": "Unknown error"})
+        
+        if result["success"]:
+            self.status_label.setText("✓ Connection successful!")
+            self.status_label.setStyleSheet("color: green; font-style: italic; margin: 5px 0px;")
+        else:
+            error = result.get("error", "Unknown error")
+            self.status_label.setText(f"✗ Connection failed: {error}")
+            self.status_label.setStyleSheet("color: red; font-style: italic; margin: 5px 0px;")
     
     def update_config_from_ui(self):
         """Update config object from UI values"""

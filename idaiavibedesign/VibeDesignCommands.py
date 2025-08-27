@@ -12,6 +12,13 @@ except ImportError:
     AI_AVAILABLE = False
     FreeCAD.Console.PrintWarning("AI features not available. Install required dependencies.\n")
 
+try:
+    from ParametricManager import ParametricObjectManager
+    PARAMETRIC_AVAILABLE = True
+except ImportError:
+    PARAMETRIC_AVAILABLE = False
+    FreeCAD.Console.PrintWarning("Parametric features not available.\n")
+
 class VibeDesignPromptCommand:
     """Command to process natural language prompts"""
     
@@ -38,9 +45,10 @@ class VibeDesignPromptPanel(QtCore.QObject):
     
     def __init__(self):
         super().__init__()
-        self.parser = PromptParser()
         self.ai_manager = None
         self.ai_enabled = False
+        self.parametric_manager = None
+        self.parametric_enabled = True  # Default to parametric
         
         # Initialize AI manager before creating UI
         if AI_AVAILABLE:
@@ -49,6 +57,17 @@ class VibeDesignPromptPanel(QtCore.QObject):
                 self.load_ai_settings()
             except Exception as e:
                 FreeCAD.Console.PrintWarning(f"Could not initialize AI agent: {str(e)}\n")
+        
+        # Initialize parametric manager
+        if PARAMETRIC_AVAILABLE:
+            try:
+                self.parametric_manager = ParametricObjectManager()
+            except Exception as e:
+                FreeCAD.Console.PrintWarning(f"Could not initialize parametric manager: {str(e)}\n")
+                self.parametric_enabled = False
+        
+        # Initialize parser with parametric manager
+        self.parser = PromptParser(self.parametric_manager if self.parametric_enabled else None)
         
         self.form = self.create_ui()
         
@@ -115,6 +134,28 @@ class VibeDesignPromptPanel(QtCore.QObject):
             mode_layout.addWidget(self.settings_button)
         
         layout.addLayout(mode_layout)
+        
+        # Parametric mode toggle
+        parametric_layout = QtWidgets.QHBoxLayout()
+        
+        self.parametric_label = QtWidgets.QLabel("Object Creation:")
+        parametric_layout.addWidget(self.parametric_label)
+        
+        self.parametric_toggle = QtWidgets.QCheckBox("Create Parametric Objects")
+        self.parametric_toggle.setChecked(self.parametric_enabled and PARAMETRIC_AVAILABLE)
+        self.parametric_toggle.setEnabled(PARAMETRIC_AVAILABLE and bool(self.parametric_manager))
+        self.parametric_toggle.toggled.connect(self.on_parametric_toggle)
+        parametric_layout.addWidget(self.parametric_toggle)
+        
+        parametric_layout.addStretch()
+        
+        # Parameters button
+        if PARAMETRIC_AVAILABLE:
+            self.parameters_button = QtWidgets.QPushButton("View Parameters")
+            self.parameters_button.clicked.connect(self.view_parameters)
+            parametric_layout.addWidget(self.parameters_button)
+        
+        layout.addLayout(parametric_layout)
         
         # Prompt input
         self.prompt_input = QtWidgets.QTextEdit()
@@ -288,6 +329,8 @@ class VibeDesignPromptPanel(QtCore.QObject):
                 result = self.create_ai_torus(doc, name, dimensions, position, rotation)
             elif shape == "wedge":
                 result = self.create_ai_wedge(doc, name, dimensions, position, rotation)
+            elif shape == "hexagon":
+                result = self.create_ai_hexagon(doc, name, dimensions, position, rotation)
             else:
                 return None
             
@@ -301,38 +344,58 @@ class VibeDesignPromptPanel(QtCore.QObject):
         width = dims.get('width', dims.get('length', 10))
         height = dims.get('height', dims.get('length', 10))
         
-        obj = doc.addObject("Part::Box", name)
-        obj.Length = length
-        obj.Width = width
-        obj.Height = height
-        obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
-        obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
-        
-        return f"Box {name} ({length:.1f} x {width:.1f} x {height:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            # Create parametric box
+            obj, variables = self.parametric_manager.create_parametric_box(
+                name, dims, pos, rot
+            )
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items() if 'pos' not in k])
+            return f"Parametric Box {name} ({length:.1f} x {width:.1f} x {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            # Create standard box
+            obj = doc.addObject("Part::Box", name)
+            obj.Length = length
+            obj.Width = width
+            obj.Height = height
+            obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
+            obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
+            return f"Box {name} ({length:.1f} x {width:.1f} x {height:.1f} mm)"
     
     def create_ai_cylinder(self, doc, name, dims, pos, rot):
         """Create cylinder from AI command"""
         radius = dims.get('radius', dims.get('diameter', 10) / 2)
         height = dims.get('height', 10)
         
-        obj = doc.addObject("Part::Cylinder", name)
-        obj.Radius = radius
-        obj.Height = height
-        obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
-        obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
-        
-        return f"Cylinder {name} (radius {radius:.1f} mm, height {height:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            # Create parametric cylinder
+            obj, variables = self.parametric_manager.create_parametric_cylinder(
+                name, dims, pos, rot
+            )
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items() if 'pos' not in k])
+            return f"Parametric Cylinder {name} (radius {radius:.1f} mm, height {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            # Create standard cylinder
+            obj = doc.addObject("Part::Cylinder", name)
+            obj.Radius = radius
+            obj.Height = height
+            obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
+            obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
+            return f"Cylinder {name} (radius {radius:.1f} mm, height {height:.1f} mm)"
     
     def create_ai_sphere(self, doc, name, dims, pos, rot):
         """Create sphere from AI command"""
         radius = dims.get('radius', dims.get('diameter', 10) / 2)
         
-        obj = doc.addObject("Part::Sphere", name)
-        obj.Radius = radius
-        obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
-        obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
-        
-        return f"Sphere {name} (radius {radius:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_sphere(name, dims, pos, rot)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items() if 'pos' not in k])
+            return f"Parametric Sphere {name} (radius {radius:.1f} mm) [Variables: {var_info}]"
+        else:
+            obj = doc.addObject("Part::Sphere", name)
+            obj.Radius = radius
+            obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
+            obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
+            return f"Sphere {name} (radius {radius:.1f} mm)"
     
     def create_ai_cone(self, doc, name, dims, pos, rot):
         """Create cone from AI command"""
@@ -340,27 +403,35 @@ class VibeDesignPromptPanel(QtCore.QObject):
         radius2 = dims.get('radius2', 0)
         height = dims.get('height', 10)
         
-        obj = doc.addObject("Part::Cone", name)
-        obj.Radius1 = radius1
-        obj.Radius2 = radius2
-        obj.Height = height
-        obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
-        obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
-        
-        return f"Cone {name} (radius {radius1:.1f} mm, height {height:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_cone(name, dims, pos, rot)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items() if 'pos' not in k])
+            return f"Parametric Cone {name} (radius {radius1:.1f} mm, height {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            obj = doc.addObject("Part::Cone", name)
+            obj.Radius1 = radius1
+            obj.Radius2 = radius2
+            obj.Height = height
+            obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
+            obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
+            return f"Cone {name} (radius {radius1:.1f} mm, height {height:.1f} mm)"
     
     def create_ai_torus(self, doc, name, dims, pos, rot):
         """Create torus from AI command"""
         radius1 = dims.get('major_radius', dims.get('radius', 20))
         radius2 = dims.get('minor_radius', dims.get('tube_radius', 5))
         
-        obj = doc.addObject("Part::Torus", name)
-        obj.Radius1 = radius1
-        obj.Radius2 = radius2
-        obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
-        obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
-        
-        return f"Torus {name} (major {radius1:.1f} mm, minor {radius2:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_torus(name, dims, pos, rot)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items() if 'pos' not in k])
+            return f"Parametric Torus {name} (major {radius1:.1f} mm, minor {radius2:.1f} mm) [Variables: {var_info}]"
+        else:
+            obj = doc.addObject("Part::Torus", name)
+            obj.Radius1 = radius1
+            obj.Radius2 = radius2
+            obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
+            obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
+            return f"Torus {name} (major {radius1:.1f} mm, minor {radius2:.1f} mm)"
     
     def create_ai_wedge(self, doc, name, dims, pos, rot):
         """Create wedge from AI command"""
@@ -368,14 +439,60 @@ class VibeDesignPromptPanel(QtCore.QObject):
         width = dims.get('width', 10)
         height = dims.get('height', 10)
         
-        obj = doc.addObject("Part::Wedge", name)
-        obj.Xmax = length
-        obj.Ymax = width
-        obj.Zmax = height
-        obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
-        obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_wedge(name, dims, pos, rot)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items() if 'pos' not in k])
+            return f"Parametric Wedge {name} ({length:.1f} x {width:.1f} x {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            obj = doc.addObject("Part::Wedge", name)
+            obj.Xmax = length
+            obj.Ymax = width
+            obj.Zmax = height
+            obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
+            obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
+            return f"Wedge {name} ({length:.1f} x {width:.1f} x {height:.1f} mm)"
+    
+    def create_ai_hexagon(self, doc, name, dims, pos, rot):
+        """Create hexagon from AI command"""
+        width = dims.get('width', dims.get('diameter', dims.get('size', 20)))
+        height = dims.get('height', 10)
         
-        return f"Wedge {name} ({length:.1f} x {width:.1f} x {height:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_hexagon(name, dims, pos, rot)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items() if 'pos' not in k])
+            return f"Parametric Hexagon {name} (width {width:.1f} mm, height {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            # Create standard hexagon using Part workbench
+            import Part
+            
+            # Create hexagonal profile
+            import math
+            radius = width / 2
+            points = []
+            for i in range(6):
+                angle = i * math.pi / 3
+                x = radius * math.cos(angle)
+                y = radius * math.sin(angle)
+                points.append(FreeCAD.Vector(x, y, 0))
+            points.append(points[0])  # Close the polygon
+            
+            # Create wire from points
+            edges = []
+            for i in range(len(points)-1):
+                edges.append(Part.makeLine(points[i], points[i+1]))
+            wire = Part.Wire(edges)
+            face = Part.Face(wire)
+            
+            # Extrude to create solid
+            solid = face.extrude(FreeCAD.Vector(0, 0, height))
+            
+            # Create FreeCAD object
+            obj = doc.addObject("Part::Feature", name)
+            obj.Shape = solid
+            obj.Placement.Base = FreeCAD.Vector(pos['x'], pos['y'], pos['z'])
+            obj.Placement.Rotation = FreeCAD.Rotation(rot['x'], rot['y'], rot['z'])
+            
+            return f"Hexagon {name} (width {width:.1f} mm, height {height:.1f} mm)"
     
     def get_current_context(self):
         """Get current FreeCAD context for AI"""
@@ -398,6 +515,38 @@ class VibeDesignPromptPanel(QtCore.QObject):
                 "Describe what you want to create in detail. AI can handle complex requests like \"create a bearing housing with 20mm bore\"")
         else:
             self.prompt_input.setPlaceholderText("create a square box, 8x8x8 cm")
+    
+    def on_parametric_toggle(self, checked):
+        """Handle parametric toggle"""
+        self.parametric_enabled = checked and PARAMETRIC_AVAILABLE and bool(self.parametric_manager)
+        
+        # Update parser's parametric mode
+        if hasattr(self, 'parser'):
+            self.parser.parametric_manager = self.parametric_manager if self.parametric_enabled else None
+            self.parser.parametric_enabled = self.parametric_enabled
+        
+        if self.parametric_enabled:
+            self.output_text.append("✓ Parametric mode enabled - objects will be created with variables")
+        else:
+            self.output_text.append("✓ Standard mode enabled - objects will use fixed values")
+    
+    def view_parameters(self):
+        """Open parameters viewer"""
+        if not self.parametric_manager:
+            self.output_text.append("✗ Parametric manager not available")
+            return
+        
+        # Show the spreadsheet
+        spreadsheet_name = self.parametric_manager.get_spreadsheet_reference()
+        if FreeCAD.ActiveDocument:
+            spreadsheet_obj = FreeCAD.ActiveDocument.getObject(spreadsheet_name)
+            if spreadsheet_obj:
+                FreeCADGui.ActiveDocument.setEdit(spreadsheet_obj)
+                self.output_text.append(f"✓ Opened parameters spreadsheet: {spreadsheet_name}")
+            else:
+                self.output_text.append("✗ Parameters spreadsheet not found")
+        else:
+            self.output_text.append("✗ No active document")
     
     def clear_history(self):
         """Clear AI conversation history"""
@@ -479,7 +628,10 @@ class VibeDesignPromptPanel(QtCore.QObject):
 class PromptParser:
     """Parser for natural language geometric descriptions"""
     
-    def __init__(self):
+    def __init__(self, parametric_manager=None):
+        self.parametric_manager = parametric_manager
+        self.parametric_enabled = parametric_manager is not None
+        
         # Unit conversion to mm (FreeCAD's default)
         self.units = {
             'mm': 1.0,
@@ -497,7 +649,8 @@ class PromptParser:
             'box': [r'box', r'cube', r'rectangular', r'cuboid'],
             'cylinder': [r'cylinder', r'tube', r'pipe'],
             'sphere': [r'sphere', r'ball'],
-            'cone': [r'cone']
+            'cone': [r'cone'],
+            'hexagon': [r'hexagon', r'hexagonal', r'hex']
         }
     
     def parse_and_execute(self, prompt):
@@ -575,6 +728,8 @@ class PromptParser:
             return self.create_sphere(doc, obj_name, dimensions)
         elif shape_type == 'cone':
             return self.create_cone(doc, obj_name, dimensions)
+        elif shape_type == 'hexagon':
+            return self.create_hexagon(doc, obj_name, dimensions)
         
         return None
     
@@ -584,40 +739,99 @@ class PromptParser:
         width = dims.get('width', length)  # Default to cube if only one dimension
         height = dims.get('height', length)
         
-        obj = doc.addObject("Part::Box", name)
-        obj.Length = length
-        obj.Width = width
-        obj.Height = height
-        return f"Box ({length:.1f} x {width:.1f} x {height:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_box(name, dims)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items()])
+            return f"Parametric Box ({length:.1f} x {width:.1f} x {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            obj = doc.addObject("Part::Box", name)
+            obj.Length = length
+            obj.Width = width
+            obj.Height = height
+            return f"Box ({length:.1f} x {width:.1f} x {height:.1f} mm)"
     
     def create_cylinder(self, doc, name, dims):
         """Create a cylinder"""
         radius = dims.get('radius', dims.get('diameter', 10) / 2)
         height = dims.get('height', 10)
         
-        obj = doc.addObject("Part::Cylinder", name)
-        obj.Radius = radius
-        obj.Height = height
-        return f"Cylinder (radius {radius:.1f} mm, height {height:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_cylinder(name, dims)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items()])
+            return f"Parametric Cylinder (radius {radius:.1f} mm, height {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            obj = doc.addObject("Part::Cylinder", name)
+            obj.Radius = radius
+            obj.Height = height
+            return f"Cylinder (radius {radius:.1f} mm, height {height:.1f} mm)"
     
     def create_sphere(self, doc, name, dims):
         """Create a sphere"""
         radius = dims.get('radius', dims.get('diameter', 10) / 2)
         
-        obj = doc.addObject("Part::Sphere", name)
-        obj.Radius = radius
-        return f"Sphere (radius {radius:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_sphere(name, dims)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items()])
+            return f"Parametric Sphere (radius {radius:.1f} mm) [Variables: {var_info}]"
+        else:
+            obj = doc.addObject("Part::Sphere", name)
+            obj.Radius = radius
+            return f"Sphere (radius {radius:.1f} mm)"
     
     def create_cone(self, doc, name, dims):
         """Create a cone"""
         radius = dims.get('radius', dims.get('diameter', 10) / 2)
         height = dims.get('height', 10)
         
-        obj = doc.addObject("Part::Cone", name)
-        obj.Radius1 = radius
-        obj.Radius2 = 0  # Point at top
-        obj.Height = height
-        return f"Cone (radius {radius:.1f} mm, height {height:.1f} mm)"
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_cone(name, dims)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items()])
+            return f"Parametric Cone (radius {radius:.1f} mm, height {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            obj = doc.addObject("Part::Cone", name)
+            obj.Radius1 = radius
+            obj.Radius2 = 0  # Point at top
+            obj.Height = height
+            return f"Cone (radius {radius:.1f} mm, height {height:.1f} mm)"
+    
+    def create_hexagon(self, doc, name, dims):
+        """Create a hexagon"""
+        width = dims.get('width', dims.get('diameter', dims.get('size', 20)))
+        height = dims.get('height', 10)
+        
+        if self.parametric_enabled and self.parametric_manager:
+            obj, variables = self.parametric_manager.create_parametric_hexagon(name, dims)
+            var_info = ", ".join([f"{k}={v.split('.')[-1]}" for k, v in variables.items()])
+            return f"Parametric Hexagon (width {width:.1f} mm, height {height:.1f} mm) [Variables: {var_info}]"
+        else:
+            # Create standard hexagon using Part workbench
+            import Part
+            import math
+            
+            radius = width / 2
+            points = []
+            for i in range(6):
+                angle = i * math.pi / 3
+                x = radius * math.cos(angle)
+                y = radius * math.sin(angle)
+                points.append(FreeCAD.Vector(x, y, 0))
+            points.append(points[0])  # Close the polygon
+            
+            # Create wire from points
+            edges = []
+            for i in range(len(points)-1):
+                edges.append(Part.makeLine(points[i], points[i+1]))
+            wire = Part.Wire(edges)
+            face = Part.Face(wire)
+            
+            # Extrude to create solid
+            solid = face.extrude(FreeCAD.Vector(0, 0, height))
+            
+            # Create FreeCAD object
+            obj = doc.addObject("Part::Feature", name)
+            obj.Shape = solid
+            
+            return f"Hexagon (width {width:.1f} mm, height {height:.1f} mm)"
     
     def generate_object_name(self, shape_type):
         """Generate a unique object name"""

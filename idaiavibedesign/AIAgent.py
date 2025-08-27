@@ -14,8 +14,8 @@ class AIAgentConfig:
         self.model = "llama3.1:8b"
         self.api_key = ""
         self.base_url = "http://localhost:11434/v1"
-        self.timeout = 60
-        self.max_retries = 3
+        self.timeout = 120  # Increase timeout for complex requests
+        self.max_retries = 2   # Reduce retries to avoid memory buildup
         self.temperature = 0.1
         
     def to_dict(self):
@@ -66,6 +66,10 @@ class AIAgent:
                 "parsed": parsed_response
             })
             
+            # Keep only last 5 conversations to prevent memory buildup
+            if len(self.conversation_history) > 5:
+                self.conversation_history = self.conversation_history[-5:]
+            
             return parsed_response
             
         except Exception as e:
@@ -84,6 +88,7 @@ AVAILABLE SHAPES:
 - Cone: pointed circular objects
 - Torus: donut shapes
 - Wedge: triangular prisms
+- Hexagon: six-sided prisms
 
 SUPPORTED OPERATIONS:
 - Create new objects
@@ -99,7 +104,7 @@ Return a JSON object with this structure:
   "commands": [
     {
       "type": "create",
-      "shape": "box|cylinder|sphere|cone|torus|wedge",
+      "shape": "box|cylinder|sphere|cone|torus|wedge|hexagon",
       "dimensions": {"length": 10, "width": 10, "height": 10},
       "position": {"x": 0, "y": 0, "z": 0},
       "rotation": {"x": 0, "y": 0, "z": 0},
@@ -141,8 +146,8 @@ Be precise with object names and positions."""
             {"role": "user", "content": user_prompt}
         ]
         
-        # Add conversation history for context
-        for entry in self.conversation_history[-3:]:  # Last 3 exchanges
+        # Add conversation history for context (limited to reduce memory usage)
+        for entry in self.conversation_history[-2:]:  # Last 2 exchanges only
             messages.insert(-1, {"role": "user", "content": entry["user"]})
             messages.insert(-1, {"role": "assistant", "content": entry["assistant"]})
         
@@ -166,6 +171,45 @@ Be precise with object names and positions."""
                 result = response.json()
                 return result["choices"][0]["message"]["content"]
                 
+            except requests.exceptions.HTTPError as e:
+                # Handle specific HTTP errors
+                if hasattr(e.response, 'status_code'):
+                    status_code = e.response.status_code
+                    if status_code == 500:
+                        error_msg = f"Ollama server error (500) - likely memory/resource issue. Try a smaller model or restart Ollama."
+                        if attempt == self.config.max_retries - 1:
+                            raise Exception(error_msg)
+                        FreeCAD.Console.PrintWarning(f"Attempt {attempt + 1}: {error_msg} Retrying...\n")
+                        time.sleep(5)  # Longer wait for server errors
+                    elif status_code == 404:
+                        raise Exception(f"Model '{self.config.model}' not found. Check if model is installed: ollama pull {self.config.model}")
+                    elif status_code == 429:
+                        if attempt == self.config.max_retries - 1:
+                            raise Exception("Too many requests. Please wait and try again.")
+                        time.sleep(10)  # Wait longer for rate limits
+                    else:
+                        if attempt == self.config.max_retries - 1:
+                            raise Exception(f"HTTP {status_code}: {str(e)}")
+                        time.sleep(2 ** attempt)
+                else:
+                    if attempt == self.config.max_retries - 1:
+                        raise Exception(f"HTTP error: {str(e)}")
+                    time.sleep(2 ** attempt)
+                    
+            except requests.exceptions.Timeout:
+                error_msg = f"Request timed out after {self.config.timeout} seconds"
+                if attempt == self.config.max_retries - 1:
+                    raise Exception(f"{error_msg}. Try increasing timeout in AI settings or using a faster model.")
+                FreeCAD.Console.PrintWarning(f"Attempt {attempt + 1}: {error_msg}. Retrying...\n")
+                time.sleep(5)
+                
+            except requests.exceptions.ConnectionError:
+                error_msg = "Could not connect to Ollama"
+                if attempt == self.config.max_retries - 1:
+                    raise Exception(f"{error_msg}. Make sure Ollama is running: ollama serve")
+                FreeCAD.Console.PrintWarning(f"Attempt {attempt + 1}: {error_msg}. Retrying...\n")
+                time.sleep(3)
+                
             except requests.exceptions.RequestException as e:
                 if attempt == self.config.max_retries - 1:
                     raise Exception(f"LLM API call failed after {self.config.max_retries} attempts: {str(e)}")
@@ -176,9 +220,21 @@ Be precise with object names and positions."""
     def _parse_ai_response(self, response: str) -> Dict[str, Any]:
         """Parse AI response into structured commands"""
         
+        # Clean up response - remove markdown code blocks if present
+        clean_response = response.strip()
+        if clean_response.startswith('```'):
+            # Remove opening ```json or ``` 
+            lines = clean_response.split('\n')
+            if lines[0].startswith('```'):
+                lines = lines[1:]
+            # Remove closing ```
+            if lines and lines[-1].strip() == '```':
+                lines = lines[:-1]
+            clean_response = '\n'.join(lines)
+        
         try:
             # Try to find JSON in the response
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            json_match = re.search(r'\{.*\}', clean_response, re.DOTALL)
             if json_match:
                 json_str = json_match.group(0)
                 parsed = json.loads(json_str)
@@ -187,8 +243,8 @@ Be precise with object names and positions."""
                 if "commands" in parsed and isinstance(parsed["commands"], list):
                     return parsed
                     
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            FreeCAD.Console.PrintWarning(f"JSON parse error: {str(e)}\nResponse was: {response[:200]}...\n")
         
         # Fallback: try to parse manually
         return self._fallback_parse(response)

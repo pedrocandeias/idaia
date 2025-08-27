@@ -48,7 +48,35 @@
 
 ### 📦 **Installation**
 
-#### **For Regular FreeCAD Installation**
+#### **🚀 Automatic Installation (Recommended)**
+
+1. **Download and run the installer:**
+   ```bash
+   git clone https://github.com/pedrocandeias/idaia.git
+   cd idaia
+   ./install.sh
+   ```
+
+The interactive installer will:
+- ✅ **Auto-detect** your FreeCAD installation (snap, flatpak, standard, or manual path)
+- ✅ **Install dependencies** (requests library) for your specific setup
+- ✅ **Optionally install Ollama** for local AI features with model download
+- ✅ **Copy addon files** to the correct FreeCAD directory
+- ✅ **Verify installation** and provide next steps
+
+**Supported FreeCAD installations:**
+- **Standard**: System package manager, compiled from source
+- **Snap**: `snap install freecad` (Ubuntu/Linux)
+- **Flatpak**: `flatpak install org.freecadweb.FreeCAD`
+- **AppImage**: Portable FreeCAD builds
+- **Custom paths**: Manual directory selection
+
+#### **📋 Manual Installation**
+
+If you prefer to install manually or the automatic installer doesn't work:
+
+<details>
+<summary><strong>For Regular FreeCAD Installation</strong></summary>
 
 1. **Download the addon:**
    ```bash
@@ -68,8 +96,10 @@
    ```
 
 4. **Restart FreeCAD** and find "Vibe Design" in the workbench selector
+</details>
 
-#### **For FreeCAD Snap Installation**
+<details>
+<summary><strong>For FreeCAD Snap Installation</strong></summary>
 
 If you're using FreeCAD installed via snap (common on Ubuntu/Linux):
 
@@ -91,6 +121,7 @@ If you're using FreeCAD installed via snap (common on Ubuntu/Linux):
 4. **Restart FreeCAD** and find "Vibe Design" in the workbench selector
 
 > **Note for Snap Users**: The snap version has limited access to system Python packages. The workbench will function with built-in rule-based parsing for standard shapes (boxes, cylinders, spheres) but AI features may be unavailable.
+</details>
 
 ### 🎯 **Basic Usage**
 
@@ -280,6 +311,28 @@ We welcome contributions! Here's how you can help:
 - **🧪 Testing**: Compatible with FreeCAD 0.20+
 - **🌍 Localization**: English (more languages planned)
 - **📦 Dependencies**: Minimal (only `requests` for AI)
+
+## 🗑️ **Uninstallation**
+
+### **🚀 Automatic Removal**
+
+```bash
+# Interactive uninstall with options
+./uninstall.sh
+
+# Or via install script
+./install.sh --uninstall
+```
+
+The uninstall script provides options to remove:
+- ✅ **VibeDesign addon** from all FreeCAD installations  
+- ✅ **Individual AI models** or all models
+- ✅ **Ollama installation** completely
+- ✅ **Python dependencies** (optional)
+
+### **📖 Manual Removal**
+
+For manual removal instructions, see [UNINSTALL_MANUAL.md](UNINSTALL_MANUAL.md)
 
 ## 🙏 **Acknowledgments**
 
