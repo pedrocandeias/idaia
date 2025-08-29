@@ -47,6 +47,10 @@ class NLPanel(QtGui.QWidget):
         self.output = QtGui.QPlainTextEdit()
         self.output.setReadOnly(True)
         self.output.setMinimumHeight(140)
+        font = QtGui.QFont("Monospace"); font.setStyleHint(QtGui.QFont.TypeWriter)
+        self.output.setFont(font)
+        self.prompt.setFont(font)
+
 
         # Buttons
         self.btnRun = QtGui.QPushButton("Generate & Run")
@@ -95,6 +99,8 @@ class NLPanel(QtGui.QWidget):
             self.log("Generated code:\n" + code)
             if not self.dryRun.isChecked():
                 safe_run(code)
+                clean_code = code  # já vem normalizado a partir do ask_llm agora
+                self.log("Generated code:\n" + clean_code)
                 self.log("Executed.")
             else:
                 self.log("Dry run only (not executed).")
@@ -122,7 +128,7 @@ class ShowPanelCmdClass:
         return {
             "MenuText": "Show NL Panel",
             "ToolTip": "Open the Natural Language panel",
-            "Pixmap": "icons/addon.svg",
+            "Pixmap": "addon.svg",
         }
 
     def IsActive(self):
