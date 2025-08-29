@@ -1,0 +1,9 @@
+# Addon/metadata.txt
+name = IDAIA NL FreeCAD
+author = Pedro Candeias
+version = 0.1.0
+date = 2025-08-29
+freecad_min = 0.20
+license = MIT
+url = https://github.com/pedrocandeias/idaia
+description = Natural language → FreeCAD Python. This workbench adds a panel that sends prompts to a local Ollama persona (freecad-gen) and executes the returned Python safely in FreeCAD.
