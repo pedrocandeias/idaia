@@ -4,6 +4,7 @@
 Dockable panel for NL → FreeCAD code generation (using local Ollama persona).
 """
 
+import os
 import traceback
 from PySide import QtGui, QtCore
 import FreeCADGui as Gui
@@ -128,7 +129,7 @@ class ShowPanelCmdClass:
         return {
             "MenuText": "Show NL Panel",
             "ToolTip": "Open the Natural Language panel",
-            "Pixmap": "addon.svg",
+            "Pixmap": os.path.join(os.path.dirname(__file__), "..", "icons", "addon.svg"),
         }
 
     def IsActive(self):

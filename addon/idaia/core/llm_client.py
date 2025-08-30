@@ -1,17 +1,24 @@
 # Addon/core/llm_client.py
 # -*- coding: utf-8 -*-
 """
-Tiny client for a local Ollama persona (e.g., 'freecad-gen').
+Tiny client for a local Ollama persona (e.g., 'industrial-design-coder').
 We call /api/chat with format=json, stream=false, and extract {"code": "..."}.
+
+Robustez extra:
+- Normaliza a base_url (remove /api e barras a mais).
+- Força system prompt para devolver ONLY {"code":"..."}.
+- Remove fences Markdown, BOM/backticks, linhas de import e chavetas soltas no fim.
+- Faz parsing resiliente caso o modelo ignore format=json e devolva markdown.
 """
 
 import json
+import re
 import urllib.request
 import urllib.error
 from typing import Optional
 
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
-DEFAULT_MODEL = "freecad-gen"
+DEFAULT_MODEL = "industrial-design-coder"
 
 
 class OllamaError(RuntimeError):
@@ -67,14 +74,36 @@ def _trim_trailing_unmatched_braces(t: str) -> str:
 
 def _normalize_code(code: str) -> str:
     """
-    Pipeline de limpeza: fences Markdown, whitespace, chavetas soltas.
-    Mantém o conteúdo tal como veio, mas remove ruído que parte o exec().
+    Pipeline de limpeza: fences Markdown, BOM/backticks, remover imports,
+    cortar chavetas soltas no fim e trim final.
     """
     t = _strip_fences(code)
-    # Remover possíveis backticks soltos ou BOM insidioso
     t = t.replace("\uFEFF", "").strip("` \n\r\t")
+    # remove linhas de import / from-import (o executor vai bloquear de qualquer modo)
+    t = "\n".join(
+        line for line in t.splitlines()
+        if not re.match(r"^\s*(import\b|from\b.+\bimport\b)", line)
+    )
     t = _trim_trailing_unmatched_braces(t)
     return t.strip()
+
+
+# ---------------- Utilidades URL ---------------- #
+
+def _normalize_base_url(base_url: str) -> str:
+    """
+    Normaliza a base_url para apontar ao host/porta do Ollama:
+    - remove espaços, barras finais repetidas,
+    - remove sufixo '/api' se existir (cliente já acrescenta /api/...).
+    """
+    if not isinstance(base_url, str) or not base_url.strip():
+        raise OllamaError(f"Invalid base URL '{base_url}'")
+    norm = base_url.strip().rstrip('/')
+    if norm.lower().endswith('/api'):
+        norm = norm[:-4]
+    if not (norm.startswith('http://') or norm.startswith('https://')):
+        raise OllamaError(f"Invalid base URL '{base_url}'. Expecting http://host:port")
+    return norm
 
 
 # ---------------- API principal ---------------- #
@@ -99,10 +128,18 @@ def ask_llm(
     if not user_text or not isinstance(user_text, str):
         raise ValueError("user_text must be a non-empty string")
 
-    # System prompt curta a reforçar o formato.
+    norm = _normalize_base_url(base_url)
+    url = f"{norm}/api/chat"
+
+    # System prompt curta a reforçar o formato e regras.
     system_msg = (
-        "You are a FreeCAD code generator. Respond ONLY with JSON of the form "
-        '{"code":"<FreeCAD Python>"} with no extra fields, no commentary, no markdown.'
+        'You are a FreeCAD code generator. Output ONLY JSON: {"code":"<FreeCAD Python>"} '
+        'Rules: (1) NO imports and NO from-import. '
+        '(2) Assume variables App (FreeCAD) and Part are available. '
+        '(3) Use doc = App.ActiveDocument or App.newDocument(). '
+        '(4) Create boxes via doc.addObject("Part::Box", "Cube"). '
+        '(5) End with doc.recompute(). '
+        '(6) No markdown, no comments, no extra fields.'
     )
 
     payload = {
@@ -118,7 +155,6 @@ def ask_llm(
     if keep_alive:
         payload["keep_alive"] = keep_alive  # e.g., "1h"
 
-    url = f"{base_url.rstrip('/')}/api/chat"
     outer = _post_json(url, payload, timeout=timeout)
 
     # Esperado: outer["message"]["content"] é um JSON stringificatedo: {"code":"..."}
@@ -138,7 +174,6 @@ def ask_llm(
             inner = json.loads(content_stripped)
         except Exception as e:
             # 3) Última tentativa: heurística — procurar um bloco ```...``` e extrair
-            # (isto acontece raramente com alguns modelos que ignoram format=json)
             if "```" in content:
                 fenced = content.split("```", 2)
                 if len(fenced) >= 2:
@@ -146,7 +181,6 @@ def ask_llm(
                     # Pode vir como "python\n<code>"
                     if "\n" in candidate:
                         candidate = "\n".join(candidate.split("\n")[1:])
-                    # embrulhar nós próprios em {"code": "..."}
                     inner = {"code": candidate}
                 else:
                     raise OllamaError(f"Assistant content is not valid JSON: {content[:200]}") from e
@@ -166,7 +200,10 @@ def ping(
     timeout: float = 5.0,
     keep_alive: Optional[str] = "1h",
 ) -> bool:
-    """Lightweight warm-up call to keep the model loaded. Returns True on success."""
+    """
+    Lightweight warm-up call to keep the model loaded.
+    Returns True on success, False on failure (non-raising).
+    """
     try:
         _ = ask_llm(
             user_text="ping",
